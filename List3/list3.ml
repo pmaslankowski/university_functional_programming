@@ -26,7 +26,15 @@ let rec scanl (f : 'a -> 'b -> 'a) (b : 'a) (l : 'b list) : 'a list =
     rev_app (aux f b l [b]) []
 
 (* exercise 3 *)
-(*TODO! *)
+let scanr (f : 'a -> 'b -> 'b) (l : 'a list) (base : 'b) : 'b list =
+  let rec aux f b l acc =
+    match l with
+      | x::xs -> let prev::_ = acc
+                 in
+                 aux f (f x b) xs ((f x prev)::acc)
+      | [] -> acc
+  in
+  aux f base (rev_app l []) [base] 
 
 (* exercise 4 *)
 let reverse (l : 'a list) : 'a list = 
@@ -81,4 +89,4 @@ let eval_rpn (l : arithm_literal list) : float =
     in 
     match List.fold_left eval [] l with
         | [x] -> x
-        | _ -> raise TooFewOperations     
+        | _ -> raise TooFewOperations
