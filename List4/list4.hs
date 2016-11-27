@@ -6,6 +6,7 @@ import Data.Sequence ((<|), (|>), (><))
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Data.Map as Map
+import qualified Control.Seq 
 
 
 --Exercise 1:
@@ -58,7 +59,9 @@ short_path (Graph (e, v)) start end = if start == end then Just [start] else
                                 queue'    = if endNow then Seq.empty else queueTail >< (Seq.fromList neighbors) 
                                 acc'      = if endNow then Map.insert end curr acc 
                                                       else foldr (\x xs -> 
-                                                             if Map.notMember x xs then Map.insert x curr xs else xs) 
+                                                                  if   Map.notMember x xs 
+                                                                  then Map.insert x curr xs 
+                                                                  else xs) 
                                                             acc neighbors
                                 visited'  = Set.insert curr visited
 
@@ -106,17 +109,27 @@ graph2 = Graph (\x -> case x of
 
 
 --exercise 4:
+{-
 rev (Graph (es, vs)) = Graph ((\v -> map fst $ filter (\el -> Set.member v $ snd el) listOfSets), vs)
-                         where listOfSets = map (\x -> (x, Set.fromList $ es x)) vs 
+                         where listOfSets = map (\x -> (x, Set.fromList $ es x)) vs -}
+
+rev (Graph (es, vs)) = 
+  let neighbors v             = foldr (\x acc -> if v `elem` (es x) then x:acc else acc ) [] vs
+      edgesMap                = map (\x -> (x, neighbors x)) vs
+      find v ((x, neighs):xs) = if x == v then neighs else find v xs
+  in Graph (\v -> find v edgesMap, vs)
+
 
 graph3 = Graph(\x -> case x of
                          1 -> []
                          2 -> [1,3]
-                         3 -> [], [1,2,3])
+                         3 -> [4, 5]
+                         4 -> []
+                         5 -> [1], [1,2,3, 4, 5])
 
 --exercise 5:
 data Tree a = Node { val :: a, chl :: [Tree a]} deriving Show
-
+{-
 tree_of :: Eq a => Graph a -> Maybe (Tree a)
 tree_of (Graph (es, vs)) =
   let tree_from visited v = if v `elem` visited then Nothing 
@@ -124,11 +137,12 @@ tree_of (Graph (es, vs)) =
                                                        Nothing -> Nothing
                                                        Just x -> Just $ (Node { val = v, chl = map fst x }, v:concatMap snd x)  
         where 
-          unHat (Just x) = x
-          maybeToBool Nothing = False
+          unHat (Just x)       = x
+          maybeToBool Nothing  = False
           maybeToBool (Just _) = True
-          possibleTrees = map (tree_from (v:visited)) $ es v
-          subtrees = if any (not.maybeToBool) possibleTrees then Nothing else Just $ map unHat possibleTrees
+          possibleTrees        = map (tree_from (v:visited)) $ es v
+          subtrees             = if any (not.maybeToBool) possibleTrees then Nothing 
+                                                                        else Just $ map unHat possibleTrees
           
       aux [] = Nothing
       aux (x:xs) = case curr of
@@ -136,4 +150,25 @@ tree_of (Graph (es, vs)) =
                      Just (tree, verticesInTree) -> if length verticesInTree == length vs then Just tree else aux xs
                      where curr = tree_from [] x 
   in aux vs 
+-}
 
+tree_of (Graph (es, vs)) =
+  let 
+    Graph (revEs, _)     = rev (Graph (es, vs))
+    candidates           = filter (\x -> revEs x == []) vs
+    tree_from visited v  = if v `elem` visited then Nothing 
+                                               else case subtrees of
+                                                      Nothing -> Nothing
+                                                      Just x -> Just $ (Node { val = v, chl = map fst x }, v:concatMap snd x)  
+      where 
+        unHat (Just x)       = x
+        maybeToBool Nothing  = False
+        maybeToBool (Just _) = True
+        possibleTrees        = map (tree_from (v:visited)) $ es v
+        subtrees             = if any (not.maybeToBool) possibleTrees then Nothing 
+                                                                      else Just $ map unHat possibleTrees
+  in 
+  case candidates of
+      [] -> Nothing
+      [x] -> tree_from [] x
+      _ -> Nothing
