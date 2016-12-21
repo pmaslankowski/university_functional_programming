@@ -57,20 +57,19 @@ module Parser (parser) where
             <|> caseExpr
             <|> numberExpr
             <|> succExpr
-            <|> try applyExpr
+            <|> try applyExpr    -- can fail after consuming "("
             <|> labelExpr
-            <|> try functionExpr
+            <|> try functionExpr -- can fail after consuming "("
             <|> parenthesisExpr
 
   letExpr :: Parser Expression
-  letExpr = do
-    reserved "let"
-    lab <- identifier
-    reserved "="
-    bindExpr <- expression
-    reserved "in"
-    expr <- expression
-    return $ Let (Label lab) bindExpr expr
+  letExpr = do reserved "let"
+               lab <- identifier
+               reserved "="
+               bindExpr <- expression
+               reserved "in"
+               expr <- expression
+               return $ Let (Label lab) bindExpr expr
 
   caseExpr :: Parser Expression
   caseExpr = do reserved "case"
@@ -114,5 +113,11 @@ module Parser (parser) where
   parenthesisExpr :: Parser Expression
   parenthesisExpr = parens expression
 
+
+  -- main parser function
+  -- Function returns AST or error message from given source code in SFL
+  -- arguments:
+  -- filename - name of file which is being parsed (this will be used only in case of errors)
+  -- code - source code to parse
   parser :: Filename -> Code -> Either ParseError Expression
   parser = parse sflParser
