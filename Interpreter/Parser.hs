@@ -5,7 +5,7 @@
  -                       Module: Parser                     -
  -       Parsing given source code to Abstract Syntax Tree  -}
 
-module Parser (parser) where
+module Parser ( parser, ASTExpression(..) ) where
   import Text.ParserCombinators.Parsec
   import Text.ParserCombinators.Parsec.Expr
   import Text.ParserCombinators.Parsec.Language
@@ -15,12 +15,11 @@ module Parser (parser) where
   type Code     = String
 
   {- AST datatype -}
-  data Expression = Let Expression Expression Expression
-                  | Lambda Expression Expression
-                  | Case Expression Expression Expression Expression Expression
-                  | Apply Expression Expression
+  data ASTExpression = Lambda ASTExpression ASTExpression
+                  | Case ASTExpression ASTExpression ASTExpression ASTExpression ASTExpression
+                  | Apply ASTExpression ASTExpression
                   | Label String
-                  | Succ Expression
+                  | Succ ASTExpression
                   | Zero
     deriving Show
 
@@ -49,10 +48,10 @@ module Parser (parser) where
   whiteSpace = Token.whiteSpace lexer
 
 
-  sflParser :: Parser Expression
+  sflParser :: Parser ASTExpression
   sflParser = whiteSpace >> expression
 
-  expression :: Parser Expression
+  expression :: Parser ASTExpression
   expression =  letExpr
             <|> caseExpr
             <|> numberExpr
@@ -62,16 +61,17 @@ module Parser (parser) where
             <|> try functionExpr -- can fail after consuming "("
             <|> parenthesisExpr
 
-  letExpr :: Parser Expression
+  letExpr :: Parser ASTExpression
   letExpr = do reserved "let"
-               lab <- identifier
+               lab <- labelExpr
                reserved "="
                bindExpr <- expression
                reserved "in"
                expr <- expression
-               return $ Let (Label lab) bindExpr expr
+               {-return $ Let (Label lab) bindExpr expr-}
+               return $ Apply (Lambda lab expr) bindExpr
 
-  caseExpr :: Parser Expression
+  caseExpr :: Parser ASTExpression
   caseExpr = do reserved "case"
                 expr <- expression
                 reserved "of"
@@ -84,7 +84,7 @@ module Parser (parser) where
                 expr2 <- expression
                 return $ Case expr num expr1 (Label lab) expr2
 
-  functionExpr :: Parser Expression
+  functionExpr :: Parser ASTExpression
   functionExpr =  parens functionExpr
               <|> do reservedOp "\\"
                      var <- identifier
@@ -92,25 +92,25 @@ module Parser (parser) where
                      expr <- expression
                      return $ Lambda (Label var) expr
 
-  succExpr :: Parser Expression
+  succExpr :: Parser ASTExpression
   succExpr = do reserved "!"
                 expr <- expression
                 return $ Succ expr
 
-  numberExpr :: Parser Expression
+  numberExpr :: Parser ASTExpression
   numberExpr =  do { num <- integer; return $ fromInt num }
                   where fromInt n = if n == 0 then Zero else Succ $ fromInt $ n-1
 
-  labelExpr :: Parser Expression
+  labelExpr :: Parser ASTExpression
   labelExpr = do lab <- identifier
                  return $ Label lab
 
-  applyExpr :: Parser Expression
+  applyExpr :: Parser ASTExpression
   applyExpr = do fun <- labelExpr <|> functionExpr
                  argument <- expression
                  return $ Apply fun argument
 
-  parenthesisExpr :: Parser Expression
+  parenthesisExpr :: Parser ASTExpression
   parenthesisExpr = parens expression
 
 
@@ -119,5 +119,5 @@ module Parser (parser) where
   -- arguments:
   -- filename - name of file which is being parsed (this will be used only in case of errors)
   -- code - source code to parse
-  parser :: Filename -> Code -> Either ParseError Expression
+  parser :: Filename -> Code -> Either ParseError ASTExpression
   parser = parse sflParser
