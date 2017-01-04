@@ -8,6 +8,7 @@
 module Main where
   import Parser
   import Interpreter
+  import System.Environment
 
   type Filename = String
   type Code     = String
@@ -25,6 +26,8 @@ module Main where
 
   ast fname = do code <- readCode fname
                  print $ parser fname code
+
   main :: IO ()
-  main = do code <- readCode "multiplication.sfl"
-            putStrLn $ runCode "mult.sfl" code
+  main = do fnames <- getArgs
+            code <- readCode $ head fnames
+            putStrLn $ runCode (head fnames) code
