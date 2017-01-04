@@ -16,11 +16,11 @@ module Parser ( parser, ASTExpression(..) ) where
 
   {- AST datatype -}
   data ASTExpression = Lambda ASTExpression ASTExpression
-                  | Case ASTExpression ASTExpression ASTExpression ASTExpression ASTExpression
-                  | Apply ASTExpression ASTExpression
-                  | Label String
-                  | Succ ASTExpression
-                  | Zero
+                     | Case ASTExpression ASTExpression ASTExpression ASTExpression ASTExpression
+                     | Apply ASTExpression ASTExpression
+                     | Label String
+                     | Succ ASTExpression
+                     | Zero
     deriving Show
 
   {- Mini Functional Language definition: -}
@@ -34,7 +34,7 @@ module Parser ( parser, ASTExpression(..) ) where
                                        , "in"
                                        , "case"
                                        , "of", "!"]
-             , Token.reservedOpNames = ["\\", "->", ":"]
+             , Token.reservedOpNames = ["\\", "->", ":", ";", ","]
              }
 
   lexer = Token.makeTokenParser mflDef
@@ -75,17 +75,19 @@ module Parser ( parser, ASTExpression(..) ) where
   caseExpr = do reserved "case"
                 expr <- expression
                 reserved "of"
-                num <- numberExpr
+                what <- expression
                 reservedOp ":"
                 expr1 <- expression
+                reservedOp ";"
                 reserved "!"
                 lab <- identifier
                 reservedOp ":"
                 expr2 <- expression
-                return $ Case expr num expr1 (Label lab) expr2
+                return $ Case expr what expr1 (Label lab) expr2
 
   functionExpr :: Parser ASTExpression
-  functionExpr =  parens functionExpr
+  functionExpr =  try (parens functionExpr)
+              <|> parens applyExpr
               <|> do reservedOp "\\"
                      var <- identifier
                      reservedOp "->"
@@ -98,7 +100,8 @@ module Parser ( parser, ASTExpression(..) ) where
                 return $ Succ expr
 
   numberExpr :: Parser ASTExpression
-  numberExpr =  do { num <- integer; return $ fromInt num }
+  numberExpr =  do { num <- integer
+                   ; if num < 0 then unexpected "Unexpected -" else return $ fromInt num }
                   where fromInt n = if n == 0 then Zero else Succ $ fromInt $ n-1
 
   labelExpr :: Parser ASTExpression
@@ -106,9 +109,17 @@ module Parser ( parser, ASTExpression(..) ) where
                  return $ Label lab
 
   applyExpr :: Parser ASTExpression
-  applyExpr = do fun <- labelExpr <|> functionExpr
-                 argument <- expression
-                 return $ Apply fun argument
+  applyExpr = let apply acc [x] = Apply acc x
+                  apply acc (x:xs) = apply (Apply acc x) xs
+              in do fun <- labelExpr <|> functionExpr
+                    arguments <- argsExpr
+                    return $ apply fun arguments
+
+  argsExpr :: Parser [ASTExpression]
+  argsExpr = many1 argExpr
+
+  argExpr :: Parser ASTExpression
+  argExpr = parens expression <|> numberExpr <|> labelExpr
 
   parenthesisExpr :: Parser ASTExpression
   parenthesisExpr = parens expression
@@ -120,4 +131,4 @@ module Parser ( parser, ASTExpression(..) ) where
   -- filename - name of file which is being parsed (this will be used only in case of errors)
   -- code - source code to parse
   parser :: Filename -> Code -> Either ParseError ASTExpression
-  parser = parse sflParser
+  parser = parse (sflParser <* eof)
