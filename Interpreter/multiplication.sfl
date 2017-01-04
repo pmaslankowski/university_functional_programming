@@ -1,0 +1,9 @@
+let add = \x -> \y ->
+  case x of 0: y;
+            ! z: ! add z y
+in
+let mul = \x -> \y ->
+  case x of 1: y;
+            ! z: (add y) (mul z y)
+in
+mul 1000 31
