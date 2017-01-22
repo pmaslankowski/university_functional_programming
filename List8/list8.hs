@@ -46,6 +46,13 @@ test1 = ListGraph ("abcdef", \x -> case x of 'a' -> "bc"
                                              'e' -> "a"
                                              'f' -> "" )
 
+test2 = ListGraph("abcdef", \x -> case x of 'a' -> "cb"
+                                            'b' -> "c"
+                                            'c' -> "df"
+                                            'd' -> "ef"
+                                            'e' -> ""
+                                            'f' -> "" )
+
 
 -- Exercise 2:
 print_graph :: (Ord a, Show a, Graph g) => g a -> IO ()
