@@ -1,8 +1,17 @@
+{-        Programowanie funkcyjne 2016
+               Lista 8, grupa kzi       
+               Piotr Maślankowski       -}
+
+
 import qualified Data.Set as DataSet
 import qualified Data.Map as DataMap
 import Data.Set (Set)
 import Data.Map (Map, (!))
 import Control.Monad
+import Control.Monad.ST
+import Data.Array.ST
+import Data.Array.Unboxed hiding ((!))
+import Data.STRef
 
 -- Exercise 1:
 newtype OptGraph a = OptGraph (Int, Int -> Set Int, Int -> a, a -> Int)
@@ -49,12 +58,13 @@ test1 = ListGraph ("abcdef", \x -> case x of 'a' -> "bc"
                                              'e' -> "a"
                                              'f' -> "" )
 
-test2 = ListGraph("abcdef", \x -> case x of 'a' -> "cb"
-                                            'b' -> "c"
-                                            'c' -> "df"
-                                            'd' -> "ef"
-                                            'e' -> ""
-                                            'f' -> "" )
+test2 = ListGraph("abcdefg", \x -> case x of 'a' -> "cb"
+                                             'b' -> "c"
+                                             'c' -> "df"
+                                             'd' -> "ef"
+                                             'e' -> ""
+                                             'f' -> ""
+                                             'g' -> "abcdef")
 
 
 -- Exercise 2:
@@ -72,8 +82,29 @@ get_graph f = let readEdges x = do neighs <- getLine
                     edgesList <- mapM readEdges nodes
                     edgesMap <- return $ DataMap.fromList edgesList 
                     return $ ListGraph (nodes, \x -> edgesMap ! x)
-                    
+
 -- for testing purposes
 main :: IO ()
 main = get_graph id >>= print_graph
-                 
+
+
+
+-- Exercise 3:
+exist_path in_graph start end =
+  let OptGraph (n, e, l, i) = opt in_graph   
+      whileM_ p f = do x <- p
+                       if x then f >> whileM_ p f else return ()
+  in not $ runST $ do
+    notVisited <- newArray (0, n-1) True :: ST s (STUArray s Int Bool)
+    stackRef <- newSTRef [i start]
+    whileM_ (do stack <- readSTRef stackRef
+                return $ stack /= [])
+            (do stack <- readSTRef stackRef
+                curr <- return $ head stack
+                others <- return $ tail stack
+                allNeighbors <- return $ DataSet.toList $ e curr
+                writeArray notVisited curr False
+                notVisitedYet <- filterM (readArray notVisited) allNeighbors
+                writeSTRef stackRef (notVisitedYet ++ others)
+                return ())
+    readArray notVisited $ i end          
